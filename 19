@@ -1,0 +1,58 @@
+template<typename T>
+class shared_ptr {
+private:
+    T* ptr;
+
+public:
+    // Конструкторы
+    shared_ptr() : ptr(nullptr) {}
+    
+    explicit shared_ptr(T* p) : ptr(p) {}
+    
+    // operator bool - приводит пустой указатель к false, не пустой - к true
+    explicit operator bool() const noexcept {
+        return ptr != nullptr;
+    }
+    
+    // get - возвращает указатель на управляемый объект
+    T* get() const noexcept {
+        return ptr;
+    }
+    
+    // swap - обмен управляемыми объектами между указателями
+    void swap(shared_ptr& other) noexcept {
+        T* temp = ptr;
+        ptr = other.ptr;
+        other.ptr = temp;
+    }
+};
+
+template<typename T>
+class weak_ptr {
+private:
+    T* ptr;
+
+public:
+    // Конструкторы
+    weak_ptr() : ptr(nullptr) {}
+    
+    weak_ptr(const shared_ptr<T>& other) : ptr(other.get()) {}
+    
+    // swap - обмен управляемыми объектами между указателями
+    void swap(weak_ptr& other) noexcept {
+        T* temp = ptr;
+        ptr = other.ptr;
+        other.ptr = temp;
+    }
+};
+
+// Свободные функции swap
+template<typename T>
+void swap(shared_ptr<T>& a, shared_ptr<T>& b) noexcept {
+    a.swap(b);
+}
+
+template<typename T>
+void swap(weak_ptr<T>& a, weak_ptr<T>& b) noexcept {
+    a.swap(b);
+}
