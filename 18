@@ -1,0 +1,20 @@
+#include <iostream>
+
+int main() {
+    prd_pointer<int> ptr1(new int(10));
+    prd_pointer<int> ptr2(new int(20));
+    
+    // operator bool
+    if (ptr1) {
+        std::cout << "ptr1 is not empty, value: " << *ptr1.get() << std::endl;
+    }
+    
+    // get()
+    std::cout << "ptr2 value via get(): " << *ptr2.get() << std::endl;
+    
+    // swap()
+    ptr1.swap(ptr2);
+    std::cout << "After swap - ptr1: " << *ptr1.get() << ", ptr2: " << *ptr2.get() << std::endl;
+    
+    return 0;
+}
