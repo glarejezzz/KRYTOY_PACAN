@@ -1,0 +1,171 @@
+USE online_sales;
+GO
+
+-- 1. Воронка продаж по клиентам
+CREATE VIEW v_customer_purchase_funnel AS
+SELECT 
+    c.name_client as ФИО_клиента,
+    c.phone_number as телефон,
+    COUNT(DISTINCT po.order_number) as оформленных_заказов,
+    SUM(CASE WHEN po.order_status = 'ПОДТВЕРЖДЕН' THEN 1 ELSE 0 END) as подтвержденных,
+    SUM(CASE WHEN po.order_status = 'В ПУТИ' THEN 1 ELSE 0 END) as в_пути,
+    SUM(CASE WHEN po.order_status = 'ВЫДАН' THEN 1 ELSE 0 END) as доставленных,
+    SUM(CASE WHEN po.order_status = 'ОТМЕНЕН' THEN 1 ELSE 0 END) as отмененных
+FROM client c
+LEFT JOIN delivery d ON c.address_client = d.delivery_address
+LEFT JOIN product_order po ON d.order_number = po.order_number
+GROUP BY c.name_client, c.phone_number;
+GO
+
+-- 2. Потенциал кросс-продаж (анализ товаров по категориям)
+CREATE VIEW v_product_cross_selling_potential AS
+SELECT 
+    p1.product_name as товар_1,
+    p1.firm as бренд_1,
+    p1.price as цена_1,
+    p2.product_name as товар_2,
+    p2.firm as бренд_2,
+    p2.price as цена_2,
+    -- Логика для совместных покупок (на основе схожих категорий)
+    CASE 
+        WHEN p1.product_name LIKE '%Смартфон%' AND p2.product_name LIKE '%Наушники%' THEN 'Частая пара'
+        WHEN p1.product_name LIKE '%Ноутбук%' AND p2.product_name LIKE '%Мышь%' THEN 'Частая пара'
+        WHEN p1.product_name LIKE '%Телевизор%' AND p2.product_name LIKE '%Колонка%' THEN 'Возможная пара'
+        WHEN p1.firm = p2.firm THEN 'Один бренд'
+        ELSE 'Редкая пара'
+    END as частота_совместных_покупок,
+    CASE 
+        WHEN p1.product_name LIKE '%Смартфон%' AND p2.product_name LIKE '%Наушники%' THEN 'Наушники'
+        WHEN p1.product_name LIKE '%Ноутбук%' AND p2.product_name LIKE '%Мышь%' THEN 'Мышь'
+        WHEN p1.product_name LIKE '%Смартфон%' AND p2.product_name LIKE '%Чехол%' THEN 'Чехол'
+        ELSE 'Специфичный товар'
+    END as рекомендуемый_сопутствующий_товар,
+    (p1.price * 0.1 + p2.price * 0.05) as потенциальный_прирост_выручки
+FROM product p1, product p2
+WHERE p1.id_product < p2.id_product
+AND p1.id_product <= 10
+AND p2.id_product <= 20;
+GO
+
+-- 3. Дашборд эффективности магазинов
+CREATE VIEW v_store_performance_dashboard AS
+SELECT 
+    os.name_store as магазин,
+    os.email,
+    os.paymant_for_Delivery as оплата_доставки,
+    COUNT(po.order_number) as количество_заказов,
+    SUM(po.number_of_products) as всего_товаров,
+    AVG(po.number_of_products * 1000) as средний_чек, -- средняя стоимость заказа
+    SUM(CASE WHEN po.order_status = 'ВЫДАН' THEN 1 ELSE 0 END) * 100.0 / COUNT(po.order_number) as конверсия_в_процентах,
+    SUM(CASE WHEN po.order_status = 'ОТМЕНЕН' THEN 1 ELSE 0 END) * 100.0 / COUNT(po.order_number) as доля_возвратов,
+    CASE 
+        WHEN AVG(po.number_of_products) > 2 THEN 5
+        WHEN AVG(po.number_of_products) > 1.5 THEN 4
+        WHEN AVG(po.number_of_products) > 1 THEN 3
+        ELSE 2
+    END as рейтинг
+FROM online_store os
+LEFT JOIN product_order po ON os.name_store = po.name_store
+GROUP BY os.name_store, os.email, os.paymant_for_Delivery;
+GO
+
+-- 4. Метрики эффективности доставки
+CREATE VIEW v_delivery_efficiency_metrics AS
+SELECT 
+    d.order_number as номер_заказа,
+    d.name_courier as курьер,
+    d.delivery_address as адрес,
+    d.delivery_date as дата_доставки,
+    po.order_date as дата_заказа,
+    DATEDIFF(day, po.order_date, d.delivery_date) as срок_доставки_дней,
+    CASE 
+        WHEN d.delivery_address LIKE '%Москва%' OR d.delivery_address LIKE '%Санкт-Петербург%' THEN 10
+        WHEN d.delivery_address LIKE '%Новосибирск%' OR d.delivery_address LIKE '%Екатеринбург%' THEN 50
+        ELSE 100
+    END as расстояние_доставки_км,
+    CASE 
+        WHEN DATEDIFF(day, po.order_date, d.delivery_date) <= 2 THEN 200
+        WHEN DATEDIFF(day, po.order_date, d.delivery_date) <= 5 THEN 350
+        ELSE 500
+    END as стоимость_логистики,
+    CASE 
+        WHEN po.order_status = 'ВЫДАН' AND DATEDIFF(day, po.order_date, d.delivery_date) <= 3 THEN 5
+        WHEN po.order_status = 'ВЫДАН' AND DATEDIFF(day, po.order_date, d.delivery_date) <= 5 THEN 4
+        WHEN po.order_status = 'В ПУТИ' THEN 3
+        ELSE 2
+    END as удовлетворенность_клиента
+FROM delivery d
+JOIN product_order po ON d.order_number = po.order_number;
+GO
+
+-- 5. Анализ гарантийных случаев
+CREATE VIEW v_warranty_claim_analysis AS
+SELECT 
+    product_name as товар,
+    firm as производитель,
+    price as цена,
+    Warranty_period as срок_гарантии,
+    quantity as количество_продаж,
+    CAST(quantity * 0.05 AS INT) as гарантийных_случаев, -- предполагаем 5% гарантийных случаев
+    CASE 
+        WHEN Warranty_period = '60 месяцев' THEN 800
+        WHEN Warranty_period = '36 месяцев' THEN 500
+        WHEN Warranty_period = '24 месяца' THEN 300
+        WHEN Warranty_period = '18 месяцев' THEN 200
+        ELSE 100
+    END as средний_срок_до_поломки_дней,
+    CASE 
+        WHEN firm IN ('Samsung', 'Apple', 'LG', 'Bosch', 'Sony') THEN 'Высокая'
+        WHEN firm IN ('Xiaomi', 'Canon', 'HP') THEN 'Средняя'
+        ELSE 'Низкая'
+    END as рейтинг_надежности
+FROM product;
+GO
+
+-- 6. Исследование эластичности спроса от цены
+CREATE VIEW v_price_elasticity_study AS
+SELECT 
+    product_name as товар,
+    price as текущая_цена,
+    quantity as количество_продаж,
+    CASE 
+        WHEN price < 10000 THEN 'Низкий (до 10 000)'
+        WHEN price BETWEEN 10000 AND 30000 THEN 'Средний (10 000-30 000)'
+        WHEN price BETWEEN 30001 AND 60000 THEN 'Выше среднего (30 000-60 000)'
+        WHEN price BETWEEN 60001 AND 100000 THEN 'Высокий (60 000-100 000)'
+        ELSE 'Премиум (>100 000)'
+    END as ценовой_диапазон,
+    price * quantity as текущая_выручка,
+    CASE 
+        WHEN price > 50000 AND quantity < 5 THEN price * 0.85
+        WHEN price > 30000 AND quantity < 10 THEN price * 0.9
+        WHEN price < 10000 AND quantity > 10 THEN price * 1.05
+        ELSE price
+    END as оптимальная_цена,
+    price * quantity * 1.2 as прогноз_выручки_при_оптимальной_цене,
+    CASE 
+        WHEN product_name IN ('Холодильник', 'Стиральная машина') THEN 'Лето'
+        WHEN product_name IN ('Обогреватель', 'Чайник') THEN 'Зима'
+        WHEN product_name IN ('Ноутбук', 'Смартфон') THEN 'Круглый год'
+        ELSE 'Осень/Весна'
+    END as сезонность
+FROM product;
+GO
+
+-- Проверка создания всех представлений
+SELECT 
+    TABLE_NAME as название_представления,
+    TABLE_TYPE as тип
+FROM INFORMATION_SCHEMA.VIEWS 
+WHERE TABLE_NAME LIKE 'v_%'
+ORDER BY TABLE_NAME;
+GO
+
+-- Примеры использования (раскомментируйте для проверки):
+-- SELECT * FROM v_customer_purchase_funnel;
+-- SELECT * FROM v_product_cross_selling_potential;
+-- SELECT * FROM v_store_performance_dashboard;
+-- SELECT * FROM v_delivery_efficiency_metrics;
+-- SELECT * FROM v_warranty_claim_analysis;
+-- SELECT * FROM v_price_elasticity_study;
+GO
