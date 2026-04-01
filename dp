@@ -1,0 +1,244 @@
+USE online_sales;
+GO
+
+-- ==================================================
+-- 1. ВСПОМОГАТЕЛЬНЫЕ ТАБЛИЦЫ ДЛЯ ЭМУЛЯЦИИ ЛОГИКИ
+-- ==================================================
+
+-- Таблица для отслеживания поведения клиента (просмотры, корзина)
+-- Необходима для воронки v_customer_purchase_funnel
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'customer_behavior')
+BEGIN
+    CREATE TABLE customer_behavior (
+        behavior_id INT IDENTITY(1,1) PRIMARY KEY,
+        client_id INT FOREIGN KEY REFERENCES client(client_id),
+        product_id INT FOREIGN KEY REFERENCES product(product_id),
+        behavior_type VARCHAR(20) NOT NULL, -- 'VIEW', 'CART_ADD'
+        created_at DATETIME DEFAULT GETDATE()
+    );
+    
+    -- Добавляем демо-данные для эмуляции
+    INSERT INTO customer_behavior (client_id, product_id, behavior_type)
+    SELECT TOP 50 client_id, 1, 'VIEW' FROM client ORDER BY NEWID();
+    INSERT INTO customer_behavior (client_id, product_id, behavior_type)
+    SELECT TOP 30 client_id, 2, 'CART_ADD' FROM client ORDER BY NEWID();
+END
+GO
+
+-- Таблица гарантийных случаев
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'warranty_claims')
+BEGIN
+    CREATE TABLE warranty_claims (
+        claim_id INT IDENTITY(1,1) PRIMARY KEY,
+        order_number VARCHAR(10) FOREIGN KEY REFERENCES product_order(order_number),
+        product_id INT FOREIGN KEY REFERENCES product(product_id),
+        claim_date DATE NOT NULL,
+        defect_description NVARCHAR(255)
+    );
+    
+    -- Добавляем демо-данные для аналитики
+    INSERT INTO warranty_claims (order_number, product_id, claim_date)
+    VALUES ('001', 1, '2024-02-15'), ('005', 2, '2024-02-20');
+END
+GO
+
+-- Таблица для расчета стоимости логистики и расстояния
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'delivery_zones')
+BEGIN
+    CREATE TABLE delivery_zones (
+        zone_id INT IDENTITY(1,1) PRIMARY KEY,
+        city_name NVARCHAR(100),
+        distance_km INT,
+        cost_per_km DECIMAL(10,2)
+    );
+    
+    INSERT INTO delivery_zones (city_name, distance_km, cost_per_km) VALUES
+    ('Москва', 10, 50), ('Санкт-Петербург', 15, 55), ('Новосибирск', 20, 45),
+    ('Екатеринбург', 18, 48), ('Казань', 12, 52);
+END
+GO
+
+-- Таблица отзывов/рейтингов доставки
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'delivery_feedback')
+BEGIN
+    CREATE TABLE delivery_feedback (
+        feedback_id INT IDENTITY(1,1) PRIMARY KEY,
+        order_number VARCHAR(10) FOREIGN KEY REFERENCES product_order(order_number),
+        satisfaction_score INT CHECK (satisfaction_score BETWEEN 1 AND 5)
+    );
+    INSERT INTO delivery_feedback (order_number, satisfaction_score)
+    VALUES ('001', 5), ('003', 4), ('005', 3), ('009', 5);
+END
+GO
+
+-- ==================================================
+-- 2. СОЗДАНИЕ ПРЕДСТАВЛЕНИЙ
+-- ==================================================
+
+-- Представление 1: Воронка продаж по клиентам
+GO
+CREATE OR ALTER VIEW v_customer_purchase_funnel AS
+SELECT 
+    c.client_id,
+    c.name_client,
+    c.address_client,
+    -- Количество просмотров товаров клиентом
+    (SELECT COUNT(*) FROM customer_behavior cb WHERE cb.client_id = c.client_id AND cb.behavior_type = 'VIEW') AS views_count,
+    -- Количество добавлений в корзину
+    (SELECT COUNT(*) FROM customer_behavior cb WHERE cb.client_id = c.client_id AND cb.behavior_type = 'CART_ADD') AS cart_adds_count,
+    -- Количество оформленных заказов (связка через продукт? В упрощенном варианте считаем заказы клиента, предполагая связь)
+    -- В реальной БД нужна таблица связки клиент-заказ. Для эмуляции: берем случайные заказы по клиентам.
+    (SELECT COUNT(*) FROM product_order po 
+     INNER JOIN delivery d ON po.order_number = d.order_number 
+     WHERE d.delivery_address LIKE '%' + LEFT(c.address_client, 20) + '%') AS orders_created,
+    -- Подтвержденные заказы (status = 'ПОДТВЕРЖДЕН' или 'В ПУТИ'/'ВЫДАН')
+    (SELECT COUNT(*) FROM product_order po 
+     INNER JOIN delivery d ON po.order_number = d.order_number 
+     WHERE d.delivery_address LIKE '%' + LEFT(c.address_client, 20) + '%' AND po.order_status IN ('ПОДТВЕРЖДЕН', 'В ПУТИ', 'ВЫДАН')) AS confirmed_orders,
+    -- Доставленные заказы (статус 'ВЫДАН')
+    (SELECT COUNT(*) FROM product_order po 
+     INNER JOIN delivery d ON po.order_number = d.order_number 
+     WHERE d.delivery_address LIKE '%' + LEFT(c.address_client, 20) + '%' AND po.order_status = 'ВЫДАН') AS delivered_orders
+FROM client c;
+GO
+
+-- Представление 2: Потенциал кросс-продаж
+GO
+CREATE OR ALTER VIEW v_product_cross_selling_potential AS
+WITH FrequentPairs AS (
+    -- Ищем пары товаров, которые часто встречаются в заказах с количеством товаров > 1
+    -- В текущей структуре нет прямой связи order-product, поэтому используем эмуляцию на основе существующих заказов
+    SELECT 
+        p1.product_id AS main_product_id,
+        p1.product_name AS main_product_name,
+        p2.product_id AS related_product_id,
+        p2.product_name AS related_product_name,
+        COUNT(*) AS purchase_frequency
+    FROM product p1
+    CROSS JOIN product p2
+    WHERE p1.product_id != p2.product_id
+    GROUP BY p1.product_id, p1.product_name, p2.product_id, p2.product_name
+)
+SELECT TOP 100
+    main_product_id,
+    main_product_name,
+    purchase_frequency AS frequency,
+    related_product_name AS recommended_product,
+    -- Потенциальный прирост: если бы к каждому заказу с main_product добавляли related_product
+    (purchase_frequency * (SELECT price FROM product WHERE product_id = related_product_id)) AS potential_revenue_increase
+FROM FrequentPairs
+WHERE purchase_frequency > 0
+ORDER BY potential_revenue_increase DESC;
+GO
+
+-- Представление 3: Дашборд эффективности магазинов
+GO
+CREATE OR ALTER VIEW v_store_performance_dashboard AS
+SELECT 
+    os.name_store,
+    COUNT(po.order_number) AS total_orders,
+    -- Конверсия (доставленные / все заказы)
+    CAST(SUM(CASE WHEN po.order_status = 'ВЫДАН' THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(*), 0) * 100 AS conversion_rate,
+    -- Средний чек (эмулируем на основе средней цены товара в магазине, т.к. нет суммы заказа)
+    AVG(p.price) AS avg_check,
+    -- Рейтинг (эмулируем на основе отзывов о доставке)
+    ISNULL((SELECT AVG(df.satisfaction_score) 
+            FROM delivery_feedback df 
+            INNER JOIN product_order po2 ON df.order_number = po2.order_number 
+            WHERE po2.name_store = os.name_store), 3.5) AS store_rating,
+    -- Доля возвратов (отмены)
+    CAST(SUM(CASE WHEN po.order_status = 'ОТМЕНЕН' THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(*), 0) * 100 AS return_rate
+FROM online_store os
+LEFT JOIN product_order po ON os.name_store = po.name_store
+LEFT JOIN product p ON p.product_id IS NOT NULL -- упрощенная связь для демонстрации
+GROUP BY os.name_store;
+GO
+
+-- Представление 4: Метрики эффективности доставки
+GO
+CREATE OR ALTER VIEW v_delivery_efficiency_metrics AS
+SELECT 
+    d.order_number,
+    -- Расстояние доставки (на основе города из адреса)
+    dz.distance_km AS delivery_distance_km,
+    -- Срок выполнения (дни между заказом и доставкой)
+    DATEDIFF(day, po.order_date, d.delivery_date) AS delivery_time_days,
+    -- Стоимость логистики
+    (dz.distance_km * dz.cost_per_km) AS logistics_cost,
+    -- Удовлетворенность
+    df.satisfaction_score AS customer_satisfaction
+FROM delivery d
+INNER JOIN product_order po ON d.order_number = po.order_number
+LEFT JOIN delivery_zones dz ON d.delivery_address LIKE '%' + dz.city_name + '%'
+LEFT JOIN delivery_feedback df ON d.order_number = df.order_number;
+GO
+
+-- Представление 5: Анализ гарантийных случаев
+GO
+CREATE OR ALTER VIEW v_warranty_claim_analysis AS
+WITH ProductSales AS (
+    -- Эмулируем продажи (количество заказов, в которых участвовал товар)
+    SELECT 
+        p.product_id,
+        p.product_name,
+        p.firm AS manufacturer,
+        p.Warranty_period,
+        COUNT(po.order_number) AS total_sales
+    FROM product p
+    LEFT JOIN product_order po ON 1=1 -- упрощенная эмуляция связи
+    GROUP BY p.product_id, p.product_name, p.firm, p.Warranty_period
+)
+SELECT 
+    ps.product_id,
+    ps.product_name,
+    ps.total_sales,
+    COUNT(wc.claim_id) AS warranty_cases,
+    -- Средний срок до поломки (если есть дата поломки, в демо ставим константу)
+    180 AS avg_days_to_failure,
+    -- Рейтинг надежности (100 - % поломок)
+    100 - (CAST(COUNT(wc.claim_id) AS FLOAT) / NULLIF(ps.total_sales, 0) * 100) AS reliability_rating
+FROM ProductSales ps
+LEFT JOIN warranty_claims wc ON ps.product_id = wc.product_id
+GROUP BY ps.product_id, ps.product_name, ps.total_sales, ps.Warranty_period;
+GO
+
+-- Представление 6: Исследование эластичности спроса по цене
+GO
+CREATE OR ALTER VIEW v_price_elasticity_study AS
+WITH PriceSegments AS (
+    SELECT 
+        product_id,
+        product_name,
+        price,
+        CASE 
+            WHEN price < 20000 THEN 'Budget (0-20k)'
+            WHEN price BETWEEN 20000 AND 60000 THEN 'Medium (20k-60k)'
+            ELSE 'Premium (60k+)'
+        END AS price_segment
+    FROM product
+)
+SELECT 
+    ps.price_segment,
+    COUNT(ps.product_id) AS products_count,
+    SUM(ps.price) AS total_revenue_potential,
+    -- В реальной жизни здесь была бы корреляция цен и кол-ва продаж
+    -- Эмулируем спрос: чем выше сегмент, тем меньше "условных" продаж
+    CASE 
+        WHEN ps.price_segment = 'Budget (0-20k)' THEN 100
+        WHEN ps.price_segment = 'Medium (20k-60k)' THEN 50
+        ELSE 20
+    END AS simulated_sales_volume,
+    -- Оптимальная цена для максимизации выручки (условно, середина диапазона)
+    CASE 
+        WHEN ps.price_segment = 'Budget (0-20k)' THEN 15000
+        WHEN ps.price_segment = 'Medium (20k-60k)' THEN 40000
+        ELSE 80000
+    END AS optimal_price,
+    -- Сезонные корректировки (пример для декабря)
+    'December: +15% volume' AS seasonal_adjustment
+FROM PriceSegments ps
+GROUP BY ps.price_segment;
+GO
+
+-- Проверка создания представлений
+SELECT 'VIEWS CREATED SUCCESSFULLY' AS Status;
