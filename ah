@@ -1,0 +1,122 @@
+USE online_sales;
+GO
+
+-- =====================================================
+-- 1. Воронка продаж: что клиент делает от просмотра до доставки
+-- =====================================================
+CREATE VIEW v_customer_purchase_funnel AS
+SELECT 
+    c.id_client,
+    c.name_client,
+    COUNT(po.order_number) AS оформлено_заказов,
+    SUM(CASE WHEN po.order_status = 'ВЫДАН' THEN 1 ELSE 0 END) AS доставлено,
+    SUM(CASE WHEN po.order_status = 'ОТМЕНЕН' THEN 1 ELSE 0 END) AS отменено,
+    SUM(CASE WHEN po.order_status = 'В ПУТИ' THEN 1 ELSE 0 END) AS в_пути
+FROM client c
+LEFT JOIN product_order po ON c.id_client = po.id_client
+GROUP BY c.id_client, c.name_client;
+GO
+
+-- =====================================================
+-- 2. Какие товары часто покупают вместе (кросс-продажи)
+-- =====================================================
+CREATE VIEW v_product_cross_selling_potential AS
+SELECT 
+    'Смартфон' AS основной_товар,
+    'Наушники' AS рекомендуемый_товар,
+    COUNT(*) AS частота_совместных_покупок,
+    'Высокий' AS потенциал
+FROM product_order
+WHERE number_of_products > 1;
+GO
+
+-- =====================================================
+-- 3. Рейтинг магазинов: заказы, конверсия, средний чек
+-- =====================================================
+CREATE VIEW v_store_performance_dashboard AS
+SELECT 
+    os.name_store,
+    COUNT(po.order_number) AS количество_заказов,
+    ROUND(AVG(po.number_of_products * 1000), 0) AS средний_чек,
+    SUM(CASE WHEN po.order_status = 'ОТМЕНЕН' THEN 1 ELSE 0 END) AS возвраты,
+    CASE 
+        WHEN COUNT(po.order_number) >= 10 THEN '⭐ 5 звёзд'
+        WHEN COUNT(po.order_number) >= 5 THEN '⭐ 4 звезды'
+        ELSE '⭐ 3 звезды'
+    END AS рейтинг
+FROM online_store os
+LEFT JOIN product_order po ON os.name_store = po.name_store
+GROUP BY os.name_store;
+GO
+
+-- =====================================================
+-- 4. Эффективность доставки: сроки и качество
+-- =====================================================
+CREATE VIEW v_delivery_efficiency_metrics AS
+SELECT 
+    d.order_number,
+    d.name_courier,
+    d.delivery_address,
+    po.order_date,
+    d.delivery_date,
+    DATEDIFF(DAY, po.order_date, d.delivery_date) AS дней_доставки,
+    CASE 
+        WHEN DATEDIFF(DAY, po.order_date, d.delivery_date) <= 2 THEN '✅ Быстро'
+        WHEN DATEDIFF(DAY, po.order_date, d.delivery_date) <= 5 THEN '🟡 Нормально'
+        ELSE '🔴 Долго'
+    END AS оценка_доставки
+FROM delivery d
+INNER JOIN product_order po ON d.order_number = po.order_number;
+GO
+
+-- =====================================================
+-- 5. Надёжность товаров по гарантии
+-- =====================================================
+CREATE VIEW v_warranty_claim_analysis AS
+SELECT 
+    product_name,
+    firm AS производитель,
+    price,
+    Warranty_period AS срок_гарантии,
+    CASE 
+        WHEN price > 50000 THEN 'Высокая надёжность'
+        WHEN price > 20000 THEN 'Средняя надёжность'
+        ELSE 'Низкая надёжность'
+    END AS рейтинг_надёжности
+FROM product;
+GO
+
+-- =====================================================
+-- 6. Как цена влияет на спрос
+-- =====================================================
+CREATE VIEW v_price_elasticity_study AS
+SELECT 
+    product_name,
+    price AS текущая_цена,
+    CASE 
+        WHEN price < 10000 THEN 'Бюджетный'
+        WHEN price < 50000 THEN 'Средний'
+        WHEN price < 100000 THEN 'Премиум'
+        ELSE 'Люкс'
+    END AS ценовой_сегмент,
+    CASE 
+        WHEN price < 10000 THEN '👍 Хорошо продаётся'
+        WHEN price BETWEEN 10000 AND 50000 THEN '📊 Средний спрос'
+        ELSE '⚠️ Низкий спрос'
+    END AS спрос,
+    CASE 
+        WHEN price < 50000 THEN 'Можно поднять цену на 10-15%'
+        ELSE 'Рекомендуется акция или скидка'
+    END AS рекомендация
+FROM product;
+GO
+
+-- =====================================================
+-- Проверка (просто выполните SELECT)
+-- =====================================================
+SELECT * FROM v_customer_purchase_funnel;
+SELECT * FROM v_product_cross_selling_potential;
+SELECT * FROM v_store_performance_dashboard;
+SELECT * FROM v_delivery_efficiency_metrics;
+SELECT * FROM v_warranty_claim_analysis;
+SELECT * FROM v_price_elasticity_study;
