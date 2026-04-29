@@ -1,0 +1,13 @@
+CREATE VIEW v_price_elasticity_study AS
+SELECT 
+    product_name AS товар,
+    price AS текущая_цена,
+    sales_monthly AS продажи_летом,
+    sales_monthly * seasonal_factor AS продажи_зимой,
+    optimal_price AS оптимальная_цена,
+    CASE 
+        WHEN MONTH(GETDATE()) IN (6,7,8) THEN price * sales_monthly
+        ELSE price * (sales_monthly * seasonal_factor)
+    END AS сезонная_выручка
+FROM product;
+GO
