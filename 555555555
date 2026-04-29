@@ -1,0 +1,13 @@
+CREATE VIEW v_warranty_claim_analysis AS
+SELECT 
+    product_name,
+    firm,
+    price,
+    Warranty_period,
+    quantity,
+    sales_monthly,
+    warranty_claims,
+    avg_time_to_failure_months,
+    reliability_rating
+FROM product;
+GO
