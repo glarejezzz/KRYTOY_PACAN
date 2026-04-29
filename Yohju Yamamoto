@@ -1,0 +1,136 @@
+ALTER TABLE delivery ADD 
+    distance_km DECIMAL(8,2),
+    logistics_cost DECIMAL(10,2),
+    customer_satisfaction INT;
+GO
+UPDATE delivery SET 
+    distance_km = 15.5,
+    logistics_cost = 500.00,
+    customer_satisfaction = 5
+WHERE order_number = '001';
+
+UPDATE delivery SET 
+    distance_km = 25.0,
+    logistics_cost = 750.00,
+    customer_satisfaction = 4
+WHERE order_number = '002';
+
+UPDATE delivery SET 
+    distance_km = 10.2,
+    logistics_cost = 350.00,
+    customer_satisfaction = 5
+WHERE order_number = '003';
+
+UPDATE delivery SET 
+    distance_km = 30.5,
+    logistics_cost = 900.00,
+    customer_satisfaction = 3
+WHERE order_number = '004';
+
+UPDATE delivery SET 
+    distance_km = 18.0,
+    logistics_cost = 550.00,
+    customer_satisfaction = 4
+WHERE order_number = '005';
+
+UPDATE delivery SET 
+    distance_km = 22.3,
+    logistics_cost = 680.00,
+    customer_satisfaction = 5
+WHERE order_number = '006';
+
+UPDATE delivery SET 
+    distance_km = 12.8,
+    logistics_cost = 420.00,
+    customer_satisfaction = 4
+WHERE order_number = '007';
+
+UPDATE delivery SET 
+    distance_km = 35.0,
+    logistics_cost = 1100.00,
+    customer_satisfaction = 2
+WHERE order_number = '008';
+
+UPDATE delivery SET 
+    distance_km = 8.5,
+    logistics_cost = 280.00,
+    customer_satisfaction = 5
+WHERE order_number = '009';
+
+UPDATE delivery SET 
+    distance_km = 20.0,
+    logistics_cost = 600.00,
+    customer_satisfaction = 4
+WHERE order_number = '010';
+
+UPDATE delivery SET 
+    distance_km = 14.3,
+    logistics_cost = 450.00,
+    customer_satisfaction = 5
+WHERE order_number = '011';
+
+UPDATE delivery SET 
+    distance_km = 28.7,
+    logistics_cost = 850.00,
+    customer_satisfaction = 3
+WHERE order_number = '012';
+
+UPDATE delivery SET 
+    distance_km = 16.2,
+    logistics_cost = 520.00,
+    customer_satisfaction = 4
+WHERE order_number = '013';
+
+UPDATE delivery SET 
+    distance_km = 40.0,
+    logistics_cost = 1250.00,
+    customer_satisfaction = 2
+WHERE order_number = '014';
+
+UPDATE delivery SET 
+    distance_km = 9.5,
+    logistics_cost = 320.00,
+    customer_satisfaction = 5
+WHERE order_number = '015';
+
+UPDATE delivery SET 
+    distance_km = 24.1,
+    logistics_cost = 720.00,
+    customer_satisfaction = 4
+WHERE order_number = '016';
+
+UPDATE delivery SET 
+    distance_km = 19.8,
+    logistics_cost = 580.00,
+    customer_satisfaction = 4
+WHERE order_number = '017';
+
+UPDATE delivery SET 
+    distance_km = 33.2,
+    logistics_cost = 980.00,
+    customer_satisfaction = 3
+WHERE order_number = '018';
+
+UPDATE delivery SET 
+    distance_km = 11.0,
+    logistics_cost = 370.00,
+    customer_satisfaction = 5
+WHERE order_number = '019';
+
+UPDATE delivery SET 
+    distance_km = 27.5,
+    logistics_cost = 800.00,
+    customer_satisfaction = 4
+WHERE order_number = '020';
+GO
+CREATE VIEW v_delivery_efficiency_metrics AS
+SELECT 
+    order_number,
+    delivery_date,
+    delivery_address,
+    name_courier,
+    distance_km,
+    logistics_cost,
+    customer_satisfaction
+FROM delivery;
+GO
