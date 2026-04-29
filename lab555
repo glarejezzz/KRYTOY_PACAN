@@ -1,0 +1,31 @@
+CREATE VIEW v_product_cross_selling_potential AS
+SELECT 
+    p1.product_name AS товар,
+    p2.product_name AS рекомендуемый_товар,
+    COUNT(*) AS частота_совместных_покупок,
+    COUNT(*) * AVG(b.price) AS потенциал_выручки_руб
+FROM order_items a
+JOIN order_items b ON a.order_number = b.order_number
+JOIN product p1 ON a.product_id = p1.id_product
+JOIN product p2 ON b.product_id = p2.id_product
+WHERE a.product_id < b.product_id
+GROUP BY p1.product_name, p2.product_name;
+-- Создаём таблицу с товарами в заказах
+CREATE TABLE order_items (
+    order_number INT,
+    product_id INT,
+    quantity INT,
+    price DECIMAL(10,2)
+);
+GO
+
+-- Добавляем примеры
+INSERT INTO order_items VALUES
+(1, 1, 1, 79990),   -- заказ 1: смартфон
+(1, 4, 1, 29990),   -- заказ 1: наушники
+(2, 2, 1, 124990),  -- заказ 2: ноутбук
+(2, 16, 1, 8990);   -- заказ 2: мышь
+GO
+
+
+GO
