@@ -1,0 +1,29 @@
+CREATE PROCEDURE usp_MakeOrder
+    @product_id INT,
+    @quantity INT
+AS
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        
+        -- Уменьшаем товар на складе
+        UPDATE product 
+        SET quantity = quantity - @quantity
+        WHERE id_product = @product_id;
+        
+        -- Добавляем заказ
+        INSERT INTO product_order (order_number, name_store, number_of_products, order_date, order_status)
+        VALUES (100, 'Вайлдберриз', @quantity, GETDATE(), 'ВЫДАН');
+        
+        COMMIT TRANSACTION;
+        SELECT 'Заказ оформлен' AS результат;
+        
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        SELECT 'Ошибка! Заказ не создан' AS результат;
+    END CATCH;
+END;
+GO
+
+EXEC usp_MakeOrder 1, 1;
