@@ -1,0 +1,39 @@
+INSERT INTO online_store (name_store, email, paymant_for_Delivery, quantity_product, views)
+VALUES 
+('Вайлдберриз', 'info@wildberries.ru', 'ДА', 0, 1250),
+('ОЗОН', 'support@ozon.ru', 'НЕТ', 120, 980),
+('Ситилинк', 'shop@citilink.ru', 'ДА', 1000, 750),
+('ЭмВидео', 'info@mvideo.ru', 'НЕТ', 86, 820),
+('Эльдорадо', 'support@eldorado.ru', 'ДА', 1200, 890),
+('ДНС', 'shop@dns-shop.ru', 'НЕТ', 192, 1100),
+('ЯндексМаркет', 'help@yandexmarket.ru', 'ДА', 111, 650),
+('Технопарк', 'info@technopark.ru', 'НЕТ', 79, 430),
+('Связной', 'support@svyaznoy.ru', 'ДА', 1222, 520),
+('МТС', 'shop@mtsshop.ru', 'НЕТ', 78, 380),
+('Билайн', 'help@beelineshop.ru', 'ДА', 101, 420),
+('РеСтор', 'info@restore.ru', 'НЕТ', 152, 310),
+('МирЭлектроники', 'support@mirelectronics.ru', 'ДА', 145, 280),
+('Техносила', 'info@technosila.ru', 'НЕТ', 178, 450),
+('220Вольт', 'shop@220volt.ru', 'ДА', 107, 560),
+('Юлмарт', 'help@ulmart.ru', 'НЕТ', 121, 340),
+('Авито', 'support@avito.ru', 'ДА', 161, 2900),
+('СитиЦентр', 'info@citycenter.ru', 'НЕТ', 1012, 480),
+('ЭлектронныйМир', 'shop@electronmir.ru', 'ДА', 1001, 390),
+('ГаджетЛенд', 'help@gadgetland.ru', 'НЕТ', 104, 360);
+GO
+CREATE PROCEDURE usp_CalculateAllStoreConversion
+AS
+BEGIN
+    SELECT 
+        s.name_store AS магазин,
+        COUNT(p.order_number) AS заказов,
+        s.views AS просмотров,
+        (COUNT(p.order_number) * 100.0) / NULLIF(s.views, 0) AS конверсия_процент
+    FROM online_store s
+    LEFT JOIN product_order p ON s.name_store = p.name_store
+    GROUP BY s.name_store, s.views
+    ORDER BY конверсия_процент DESC;
+END;
+GO
+
+EXEC usp_CalculateAllStoreConversion;
