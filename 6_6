@@ -1,0 +1,19 @@
+CREATE PROCEDURE usp_OptimizePriceSimple
+    @product_id INT
+AS
+BEGIN
+    SELECT 
+        product_name AS товар,
+        price AS текущая_цена,
+        price * sales_volume AS выручка,
+        CASE 
+            WHEN elasticity > 1 THEN price * 0.9
+            ELSE price * 1.05
+        END AS рекомендованная_цена
+    FROM product
+    WHERE id_product = @product_id;
+END;
+GO
+
+EXEC usp_OptimizePriceSimple 1;
+EXEC usp_OptimizePriceSimple 3;
