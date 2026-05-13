@@ -1,0 +1,17 @@
+CREATE PROCEDURE usp_TrackFunnel
+    @client_id INT,
+    @new_stage VARCHAR(50)
+AS
+BEGIN
+    UPDATE client 
+    SET funnel_stage = @new_stage 
+    WHERE id_client = @client_id;
+    
+    SELECT 
+        id_client,
+        name_client,
+        funnel_stage AS текущий_этап
+    FROM client 
+    WHERE id_client = @client_id;
+END;
+GO
