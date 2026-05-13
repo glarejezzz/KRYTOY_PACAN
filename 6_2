@@ -1,0 +1,18 @@
+CREATE PROCEDURE usp_AnalyzeCrossSellingSimple
+    @product_id INT
+AS
+BEGIN
+    SELECT 
+        p.product_name AS покупают_с_этим,
+        COUNT(*) AS раз
+    FROM order_items a
+    JOIN order_items b ON a.order_number = b.order_number
+    JOIN product p ON b.product_id = p.id_product
+    WHERE a.product_id = @product_id AND b.product_id != @product_id
+    GROUP BY p.product_name
+    ORDER BY раз DESC;
+END;
+GO
+
+-- Вызов
+EXEC usp_AnalyzeCrossSellingSimple 1;
