@@ -1,0 +1,25 @@
+CREATE PROCEDURE usp_EvaluateDeliverySimple
+    @courier_name VARCHAR(64)
+AS
+BEGIN
+    -- Обновляем рейтинг средним значением отзывов
+    UPDATE delivery
+    SET delivery_rating = (
+        SELECT AVG(CAST(customer_review AS DECIMAL(3,2)))
+        FROM delivery d2
+        WHERE d2.name_courier = @courier_name
+          AND d2.customer_review IS NOT NULL
+    )
+    WHERE name_courier = @courier_name;
+    
+    -- Показываем результат
+    SELECT 
+        name_courier AS курьер,
+        delivery_rating AS рейтинг,
+        customer_review AS последний_отзыв
+    FROM delivery
+    WHERE name_courier = @courier_name;
+END;
+GO
+
+EXEC usp_EvaluateDeliverySimple 'Иванов Алексей';
