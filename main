@@ -1,0 +1,104 @@
+#include <iostream>
+#include <iomanip>
+#include <numbers>
+#include <cmath>
+#include <vector>
+#include <string>
+#include <fstream>
+#include "functions.h"
+#include "plain_methods.h"
+
+// Функция для записи одной строки лога в общий файл
+void write_log_to_csv(std::ofstream& out, int func_num, const std::string& func_name, 
+                      const std::string& interval, double eps, const std::string& method, 
+                      const std::vector<IterRow>& log) 
+{
+    for (const auto& r : log) {
+        out << func_num << ","
+            << func_name << ","
+            << interval << ","
+            << eps << ","
+            << method << ","
+            << r.xk << ","
+            << r.xk1 << ","
+            << r.fxk << ","
+            << r.fxk1 << ","
+            << r.d << "\n";
+    }
+}
+
+int main() {
+    std::cout << std::fixed << std::setprecision(8);
+    const double eps = 1e-6; 
+
+    std::ofstream out("iterations_tables.csv", std::ios::out | std::ios::trunc);
+    out << "function_number,function,interval,epsilon,method,x_k,x_k1,f_x_k,f_x_k1,d\n";
+
+    std::vector<IterRow> log;
+
+    std::string f9_name = "cos(x)";
+    std::string f9_int = "[pi/2; 3pi/2]";
+    double a9 = std::numbers::pi / 2, b9 = 3 * std::numbers::pi / 2;
+    
+    log.clear(); min_uniform_search(a9, b9, eps, foo9, &log);      write_log_to_csv(out, 9, f9_name, f9_int, eps, "Uniform", log);
+    log.clear(); min_local(a9, b9, eps, foo9, &log);               write_log_to_csv(out, 9, f9_name, f9_int, eps, "Localization", log);
+    log.clear(); min_dihotomia(a9, b9, eps, foo9, &log);           write_log_to_csv(out, 9, f9_name, f9_int, eps, "Dichotomy", log);
+    log.clear(); min_golden_ration(a9, b9, eps, foo9, &log);       write_log_to_csv(out, 9, f9_name, f9_int, eps, "Golden", log);
+    log.clear(); min_fibonacci(a9, b9, eps, foo9, &log);           write_log_to_csv(out, 9, f9_name, f9_int, eps, "Fibonacci", log);
+
+    std::string f13_name = "x^5-5*x^3";
+    std::string f13_int = "[0.0; 4.0]";
+    double a13 = 0.0, b13 = 4.0;
+    
+    log.clear(); min_uniform_search(a13, b13, eps, foo13, &log);      write_log_to_csv(out, 13, f13_name, f13_int, eps, "Uniform", log);
+    log.clear(); min_local(a13, b13, eps, foo13, &log);               write_log_to_csv(out, 13, f13_name, f13_int, eps, "Localization", log);
+    log.clear(); min_dihotomia(a13, b13, eps, foo13, &log);           write_log_to_csv(out, 13, f13_name, f13_int, eps, "Dichotomy", log);
+    log.clear(); min_golden_ration(a13, b13, eps, foo13, &log);       write_log_to_csv(out, 13, f13_name, f13_int, eps, "Golden", log);
+    log.clear(); min_fibonacci(a13, b13, eps, foo13, &log);           write_log_to_csv(out, 13, f13_name, f13_int, eps, "Fibonacci", log);
+
+    std::string f17_name = "x^3-9*x";
+    std::string f17_int = "[-3.0; 0.0]";
+    double a17 = -3.0, b17 = 0.0;
+    
+    log.clear(); min_uniform_search(a17, b17, eps, nfoo17, &log);      write_log_to_csv(out, 17, f17_name, f17_int, eps, "Uniform", log);
+    log.clear(); min_local(a17, b17, eps, nfoo17, &log);               write_log_to_csv(out, 17, f17_name, f17_int, eps, "Localization", log);
+    log.clear(); min_dihotomia(a17, b17, eps, nfoo17, &log);           write_log_to_csv(out, 17, f17_name, f17_int, eps, "Dichotomy", log);
+    log.clear(); min_golden_ration(a17, b17, eps, nfoo17, &log);       write_log_to_csv(out, 17, f17_name, f17_int, eps, "Golden", log);
+    log.clear(); min_fibonacci(a17, b17, eps, nfoo17, &log);           write_log_to_csv(out, 17, f17_name, f17_int, eps, "Fibonacci", log);
+
+    std::string f19_name = "x^3+9*x";
+    std::string f19_int = "[-1.0; 1.0]";
+    double a19 = -1.0, b19 = 1.0;
+    
+    log.clear(); min_uniform_search(a19, b19, eps, foo19, &log);      write_log_to_csv(out, 19, f19_name, f19_int, eps, "Uniform", log);
+    log.clear(); min_local(a19, b19, eps, foo19, &log);               write_log_to_csv(out, 19, f19_name, f19_int, eps, "Localization", log);
+    log.clear(); min_dihotomia(a19, b19, eps, foo19, &log);           write_log_to_csv(out, 19, f19_name, f19_int, eps, "Dichotomy", log);
+    log.clear(); min_golden_ration(a19, b19, eps, foo19, &log);       write_log_to_csv(out, 19, f19_name, f19_int, eps, "Golden", log);
+    log.clear(); min_fibonacci(a19, b19, eps, foo19, &log);           write_log_to_csv(out, 19, f19_name, f19_int, eps, "Fibonacci", log);
+
+    std::string f32_name = "cos(x)*(x^2-5)";
+    std::string f32_int = "[-3.0; -1.0]";
+    double a32 = -3.0, b32 = -1.0;
+    
+    log.clear(); min_uniform_search(a32, b32, eps, foo32, &log);      write_log_to_csv(out, 32, f32_name, f32_int, eps, "Uniform", log);
+    log.clear(); min_local(a32, b32, eps, foo32, &log);               write_log_to_csv(out, 32, f32_name, f32_int, eps, "Localization", log);
+    log.clear(); min_dihotomia(a32, b32, eps, foo32, &log);           write_log_to_csv(out, 32, f32_name, f32_int, eps, "Dichotomy", log);
+    log.clear(); min_golden_ration(a32, b32, eps, foo32, &log);       write_log_to_csv(out, 32, f32_name, f32_int, eps, "Golden", log);
+    log.clear(); min_fibonacci(a32, b32, eps, foo32, &log);           write_log_to_csv(out, 32, f32_name, f32_int, eps, "Fibonacci", log);
+
+    std::string f51_name = "(3*x^2+2*x)*arctg(x)";
+    std::string f51_int = "[-0.5; 2.0]";
+    double a51 = -0.5, b51 = 2.0;
+    
+    log.clear(); min_uniform_search(a51, b51, eps, foo51, &log);      write_log_to_csv(out, 51, f51_name, f51_int, eps, "Uniform", log);
+    log.clear(); min_local(a51, b51, eps, foo51, &log);               write_log_to_csv(out, 51, f51_name, f51_int, eps, "Localization", log);
+    log.clear(); min_dihotomia(a51, b51, eps, foo51, &log);           write_log_to_csv(out, 51, f51_name, f51_int, eps, "Dichotomy", log);
+    log.clear(); min_golden_ration(a51, b51, eps, foo51, &log);       write_log_to_csv(out, 51, f51_name, f51_int, eps, "Golden", log);
+    log.clear(); min_fibonacci(a51, b51, eps, foo51, &log);           write_log_to_csv(out, 51, f51_name, f51_int, eps, "Fibonacci", log);
+
+    out.close();
+    std::cout << "All iteration logs saved successfully to iterations_tables.csv!\n";
+    std::cout << "Note: Open it in Excel to view full tables.\n";
+
+    return 0;
+}
